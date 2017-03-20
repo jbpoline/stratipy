@@ -4,10 +4,10 @@ import numpy as np
 import numpy.linalg as LA
 import scipy.sparse as sp
 from scipy.io import loadmat, savemat
-import itertools
+# import itertools
 from sklearn.utils import check_random_state, check_array
 from sklearn.utils.extmath import randomized_svd
-from scipy.spatial.distance import pdist, squareform
+# from scipy.spatial.distance import  squareform #, pdist
 import warnings
 import time
 import datetime
@@ -47,15 +47,15 @@ def NBS_init(X, n_components, init=None):
 
         if init == 'nndsvd':
             W, H = _initialize_nmf(X, n_components)
-        elif init == "random":
-            rng = check_random_state(random_state)
-            W = rng.randn(n_samples, n_components)
-            # we do not write np.abs(W, out=W) to stay compatible with
-            # numpy 1.5 and earlier where the 'out' keyword is not
-            # supported as a kwarg on ufuncs
-            np.abs(W, W)
-            H = rng.randn(n_components, n_features)
-            np.abs(H, H)
+       #elif init == "random":
+       #    rng = check_random_state(random_state)
+       #    W = rng.randn(n_samples, n_components)
+       #    # we do not write np.abs(W, out=W) to stay compatible with
+       #    # numpy 1.5 and earlier where the 'out' keyword is not
+       #    # supported as a kwarg on ufuncs
+       #    np.abs(W, W)
+       #    H = rng.randn(n_components, n_features)
+       #    np.abs(H, H)
         else:
             raise ValueError(
                 'Invalid init parameter: got %r instead of one of %r' %
@@ -168,65 +168,75 @@ def _initialize_nmf(X, n_components, variant=None, eps=1e-6,
 
 def gnmf(X, A, lambd=0, n_components=None, tol_nmf=1e-3, max_iter=100,
          verbose=False):
+    """
+    Graph regularized non negative matrix factorization
 
-        X = check_array(X)
-        check_non_negative(X, "NMF.fit")
-        n_samples, n_features = X.shape
+    Takes a matrix to factorized (X), an adjacency matrix A
 
-        if not n_components:
-            n_components = min(n_samples, n_features)
-        else:
-            n_components = n_components
+    inputs:
+    ------
+    X: sparse array
+    A: sparse array
+    """
 
-        W, H = NBS_init(X, n_components, init='nndsvd')
+    X = check_array(X)
+    check_non_negative(X, "NMF.fit")
+    n_samples, n_features = X.shape
 
-        list_reconstruction_err_ = []
+    if not n_components:
+        n_components = min(n_samples, n_features)
+    else:
+        n_components = n_components
+
+    W, H = NBS_init(X, n_components, init='nndsvd')
+
+    list_reconstruction_err_ = []
+    reconstruction_err_ = LA.norm(X - np.dot(W, H))
+    list_reconstruction_err_.append(reconstruction_err_)
+
+    eps = np.spacing(1)  # 2.2204460492503131e-16
+    Lp = np.matrix(np.diag(np.asarray(A).sum(axis=0)))  # degree matrix
+    Lm = A
+
+    for n_iter in range(1, max_iter + 1):
+
+        if verbose:
+            print("Iteration ={:4d} / {:d} - - - - — Error = {:.2f} - - - - — Tolerance = {:f}".format(n_iter, max_iter, reconstruction_err_, tol_nmf))
+
+        h1 = lambd*np.dot(H, Lm)+np.dot(W.T, (X+eps)/(np.dot(W, H)+eps))
+        h2 = lambd*np.dot(H, Lp)+np.dot(W.T, np.ones(X.shape))
+        H = np.multiply(H, (h1+eps)/(h2+eps))
+        H[H <= 0] = eps
+        H[np.isnan(H)] = eps
+
+        w1 = np.dot((X+eps)/(np.dot(W, H)+eps), H.T)
+        w2 = np.dot(np.ones(X.shape), H.T)
+        W = np.multiply(W, (w1+eps)/(w2+eps))
+        W[W <= 0] = eps
+        W[np.isnan(W)] = eps
+
+        if reconstruction_err_ > LA.norm(X - np.dot(W, H)):
+            H = (1-eps)*H + eps*np.random.normal(
+                0, 1, (n_components, n_features))**2
+            W = (1-eps)*W + eps*np.random.normal(
+                0, 1, (n_samples, n_components))**2
         reconstruction_err_ = LA.norm(X - np.dot(W, H))
         list_reconstruction_err_.append(reconstruction_err_)
 
-        eps = np.spacing(1)  # 2.2204460492503131e-16
-        Lp = np.matrix(np.diag(np.asarray(A).sum(axis=0)))  # degree matrix
-        Lm = A
+        if reconstruction_err_ < tol_nmf:
+            warnings.warn("Tolerance error reached during fit")
+            break
 
-        for n_iter in range(1, max_iter + 1):
+        if np.isnan(W).any() or np.isnan(H).any():
+            warnings.warn("NaN values at " + str(n_iter)+" Error="+str(
+                reconstruction_err_))
+            break
 
-            if verbose:
-                print("Iteration ={:4d} / {:d} - - - - — Error = {:.2f} - - - - — Tolerance = {:f}".format(n_iter, max_iter, reconstruction_err_, tol_nmf))
+        if n_iter == max_iter:
+            warnings.warn("Iteration limit reached during fit")
 
-            h1 = lambd*np.dot(H, Lm)+np.dot(W.T, (X+eps)/(np.dot(W, H)+eps))
-            h2 = lambd*np.dot(H, Lp)+np.dot(W.T, np.ones(X.shape))
-            H = np.multiply(H, (h1+eps)/(h2+eps))
-            H[H <= 0] = eps
-            H[np.isnan(H)] = eps
-
-            w1 = np.dot((X+eps)/(np.dot(W, H)+eps), H.T)
-            w2 = np.dot(np.ones(X.shape), H.T)
-            W = np.multiply(W, (w1+eps)/(w2+eps))
-            W[W <= 0] = eps
-            W[np.isnan(W)] = eps
-
-            if reconstruction_err_ > LA.norm(X - np.dot(W, H)):
-                H = (1-eps)*H + eps*np.random.normal(
-                    0, 1, (n_components, n_features))**2
-                W = (1-eps)*W + eps*np.random.normal(
-                    0, 1, (n_samples, n_components))**2
-            reconstruction_err_ = LA.norm(X - np.dot(W, H))
-            list_reconstruction_err_.append(reconstruction_err_)
-
-            if reconstruction_err_ < tol_nmf:
-                warnings.warn("Tolerance error reached during fit")
-                break
-
-            if np.isnan(W).any() or np.isnan(H).any():
-                warnings.warn("NaN values at " + str(n_iter)+" Error="+str(
-                    reconstruction_err_))
-                break
-
-            if n_iter == max_iter:
-                warnings.warn("Iteration limit reached during fit")
-
-        return (np.squeeze(np.asarray(W)), np.squeeze(np.asarray(H)),
-                list_reconstruction_err_)
+    return (np.squeeze(np.asarray(W)), np.squeeze(np.asarray(H)),
+            list_reconstruction_err_)
 
 
 def bootstrap(data_folder, mut_type, mut_propag, ppi_final,
