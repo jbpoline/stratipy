@@ -15,6 +15,7 @@ from sklearn.grid_search import ParameterGrid
 
 param_grid = {'data_folder': ['../data/'],
               'result_folder': ['../data/result_Hofree/'],
+              'ppi_data': 'influence',
               'compute': [True],
               'overwrite': [False],
               'alpha': [0.7],
@@ -44,10 +45,15 @@ def all_functions(params):
         # ------------ load_data.py ------------
         print("------------ load_data.py ------------")
         # sys.stdout.flush()
-        (gene_id_ppi, patient_id, mutation_profile, gene_id_patient,
-         gene_symbol_profile) = load_data.load_patient_data(data_folder)
+        data_folder = param_grid['data_folder'][0]
+        ppi_data = param_grid['ppi_data']
+        #--jb (gene_id_ppi, patient_id, mutation_profile, gene_id_patient,
+        (patient_id, mutation_profile, gene_id_patient,
+         gene_symbol_profile) = load_data.load_TCGA_UCEC_patient_data(data_folder)
+                                #--jb  load_data.load_patient_data(data_folder)
 
-        network = load_data.load_PPI_Hofree(data_folder)
+        #-- jb network = load_data.load_PPI_Hofree(data_folder)
+        gene_id_ppi, network = load_data.load_PPI(data_folder, ppi_data)
 
         # ------------ formatting_data.py ------------
         print("------------ formatting_data.py ------------")
