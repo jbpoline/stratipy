@@ -3,15 +3,31 @@ Patients stratification with Graph-regularized Non-negative Matrix Factorization
 
 ## Dependencies
 The minimum required dependencies to run the software are:
-  - Python >= 2.6
+  - Python >= 3.4
   - NumPy >= 1.6
   - SciPy >= 0.7.2
   - matplotlib >= 0.98.4
-  - scikit-learn >= 0.15
+  - scikit-learn >= 0.19
+  - pandas >= 0.1
+
+## Reproducibility
+To reproduce the figure 3 of our paper about reproducibility in bioinformatics, you have two options:
+1. Follow the Jupyter Notebook [reproducibility.ipynb](reproducibility/reproducibility.ipynb)
+2. Build & run the [Docker](http://docker.com) container with:
+```
+~$ mkdir <your_output_folder>
+~$ docker build -t repro .
+~$ docker run -v /absolute/path/of/<your_output_folder>:/reproducibility/reproducibility_output repro
+```
+**For Windows or Mac users:** total runtime memory of Docker is fixed to 2 GB by default. In order to launch this project, you have to increase this limit (approximately 7 GB):
+- [Windows setting](https://docs.docker.com/docker-for-windows/#advanced)
+- [Mac setting](https://docs.docker.com/docker-for-mac/#cpus)
+
 
 ## References
 - Network-based stratification of tumor mutations ([Hofree et al. Nat. Meth. 2013](http://www.nature.com/nmeth/journal/v10/n11/full/nmeth.2651.html))
 - Consensus clustering: a resampling-based method for class discovery and visualization of gene expression microarray data ([Monti et al. Mach. Learn.2003](http://link.springer.com/article/10.1023%2FA%3A1023949509487))
+- Experimenting with reproducibility in bioinformatics ([Kim et al. BioRxiv 2017](http://www.biorxiv.org/content/early/2017/06/20/143503))
 
 ## Additional links
 - [Network Based Stratification (NBS)](http://chianti.ucsd.edu/~mhofree/wordpress/?page_id=26): Matlab code & data sets.
